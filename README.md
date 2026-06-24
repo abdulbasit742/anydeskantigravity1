@@ -1,22 +1,25 @@
-# DeskRTC — AnyDesk-style Remote Desktop Source
+# DeskRTC
 
-This repository was initialized from the uploaded DeskRTC/anydesk-clone project.
+Clean source repository initialized from the uploaded project.
 
-## What is included
+## Included
 
-- A cleaned source snapshot of the DeskRTC remote desktop project.
-- Analysis and safety notes.
-- The full cleaned source archive: `DeskRTC-clean-source.zip`.
+- Node server
+- Browser pages
+- Electron wrapper
+- Python helper
+- Analysis report
+- Security notes
 
-## Important
-
-This software is intended only for remote support and remote access sessions where the host user has clearly consented. Do not use it to access or control any device without permission.
-
-## Local run
+## Run
 
 ```bash
 npm install
 npm run server
 ```
 
-Then open `http://localhost:3000`.
+Open `http://localhost:3000`.
+
+## Note
+
+Generated binaries, dependency folders, cache folders, and unrelated workspace projects were not committed.
