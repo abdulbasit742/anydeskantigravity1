@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DeskRTC Host</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="shell">
+    <section class="card">
+      <p class="eyebrow">Host mode</p>
+      <h1>Share this computer</h1>
+      <div class="row">
+        <label>Session ID <input id="hostId" readonly /></label>
+        <label>PIN <input id="pin" maxlength="12" placeholder="minimum 4 digits" /></label>
+      </div>
+      <label class="check"><input id="allowControl" type="checkbox" /> Allow remote control after agent is connected</label>
+      <div class="actions">
+        <button id="startBtn" class="button">Start screen stream</button>
+        <button id="agentBtn" class="button secondary" disabled>Start local agent</button>
+        <a class="button ghost" href="/">Home</a>
+      </div>
+      <pre id="status">Idle</pre>
+    </section>
+    <section class="card">
+      <h2>Preview</h2>
+      <video id="preview" autoplay muted playsinline></video>
+    </section>
+  </main>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const hostIdInput = document.getElementById('hostId');
+    const pinInput = document.getElementById('pin');
+    const allowControl = document.getElementById('allowControl');
+    const startBtn = document.getElementById('startBtn');
+    const agentBtn = document.getElementById('agentBtn');
+    const statusEl = document.getElementById('status');
+    const preview = document.getElementById('preview');
+    const peers = new Map();
+    let stream;
+
+    hostIdInput.value = String(Math.floor(100000000 + Math.random() * 900000000));
+    pinInput.value = String(Math.floor(1000 + Math.random() * 9000));
+
+    function log(message) {
+      statusEl.textContent = `[${new Date().toLocaleTimeString()}] ${message}\n` + statusEl.textContent;
+    }
+
+    async function makePeer(viewerId) {
+      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      pc.onicecandidate = event => {
+        if (event.candidate) socket.emit('signal', { targetId: viewerId, candidate: event.candidate });
+      };
+      peers.set(viewerId, pc);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socket.emit('signal', { targetId: viewerId, description: pc.localDescription });
+      return pc;
+    }
+
+    startBtn.onclick = async () => {
+      if (pinInput.value.trim().length < 4) return alert('Set a PIN of at least 4 digits.');
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      preview.srcObject = stream;
+      socket.emit('register-host', {
+        hostId: hostIdInput.value,
+        pin: pinInput.value.trim(),
+        allowControl: allowControl.checked
+      });
+      agentBtn.disabled = false;
+      log(`Session started. Share ID ${hostIdInput.value} and PIN with your viewer.`);
+    };
+
+    allowControl.onchange = () => {
+      socket.emit('update-host-settings', { allowControl: allowControl.checked });
+      log(`Remote control ${allowControl.checked ? 'enabled' : 'disabled'} by host.`);
+    };
+
+    agentBtn.onclick = async () => {
+      const serverUrl = location.origin;
+      if (window.deskRTC) {
+        await window.deskRTC.startAgent(hostIdInput.value, serverUrl);
+        log('Electron agent start requested.');
+      } else {
+        const command = `python host-agent.py --id ${hostIdInput.value} --server ${serverUrl}`;
+        await navigator.clipboard.writeText(command).catch(() => {});
+        log(`Run this command locally: ${command}`);
+      }
+    };
+
+    socket.on('host-registered', data => log(`Host registered. Viewers: ${data.viewers}`));
+    socket.on('client-joined', async ({ viewerId }) => {
+      log(`Viewer joined: ${viewerId}`);
+      await makePeer(viewerId);
+    });
+    socket.on('viewer-count', count => log(`Viewer count: ${count}`));
+    socket.on('agent-status', data => log(`Agent ${data.connected ? 'connected' : 'disconnected'}.`));
+    socket.on('error-msg', log);
+    socket.on('signal', async data => {
+      const pc = peers.get(data.fromId);
+      if (!pc) return;
+      if (data.description) await pc.setRemoteDescription(data.description);
+      if (data.candidate) await pc.addIceCandidate(data.candidate);
+    });
+    if (window.deskRTC) window.deskRTC.onAgentLog(log);
+  </script>
+</body>
+</html>
