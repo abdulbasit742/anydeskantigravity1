@@ -1,25 +1,29 @@
 {
   "name": "deskrtc-clean-source",
-  "version": "1.0.0",
-  "description": "Consent-based WebRTC remote desktop starter based on the uploaded DeskRTC project",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Consent-first local-network WebRTC support prototype with host-approved viewer scopes",
   "main": "electron-main.js",
   "scripts": {
     "start": "electron .",
     "server": "node server.js",
     "dev": "node server.js",
-    "check": "node --check server.js && node --check electron-main.js && node --check preload.js",
-    "agent": "python host-agent.py --id 123456789 --server http://localhost:3000"
+    "test": "node --test tests/*.test.js",
+    "security-check": "node scripts/security-check.js",
+    "check": "node --check server.js && node --check electron-main.js && node --check preload.js && node --check lib/security.js && node --check public/host.js && node --check public/viewer.js && npm test && npm run security-check",
+    "agent:help": "python host-agent.py --help"
   },
   "keywords": [
     "webrtc",
     "remote-desktop",
     "electron",
     "socket.io",
-    "remote-support"
+    "remote-support",
+    "consent"
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
     "express": "^4.19.2",
