@@ -1,116 +1,41 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Request attended access to a DeskRTC host session.">
   <title>DeskRTC Viewer</title>
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/style.css">
+  <script src="/socket.io/socket.io.js" defer></script>
+  <script src="/viewer.js" defer></script>
 </head>
 <body>
   <main class="shell viewer-shell">
     <section class="card controls">
-      <p class="eyebrow">Viewer mode</p>
-      <h1>Connect to a host</h1>
-      <div class="row">
-        <label>Session ID <input id="hostId" placeholder="123456789" /></label>
-        <label>PIN <input id="pin" placeholder="PIN" /></label>
+      <p class="eyebrow">Viewer mode — host approval required</p>
+      <h1>Request access to a host</h1>
+      <div class="row three-columns">
+        <label for="viewerLabel">Viewer label <input id="viewerLabel" maxlength="80" value="Support viewer" autocomplete="name"></label>
+        <label for="hostId">Session ID <input id="hostId" inputmode="numeric" placeholder="123456789" maxlength="12" autocomplete="off"></label>
+        <label for="pin">PIN <input id="pin" inputmode="numeric" placeholder="6+ digits" maxlength="32" autocomplete="off"></label>
       </div>
       <div class="actions">
-        <button id="connectBtn" class="button">Connect</button>
+        <button id="connectBtn" class="button" type="button">Verify PIN and request access</button>
+        <button id="disconnectBtn" class="button danger" type="button" disabled>Disconnect</button>
         <a class="button ghost" href="/">Home</a>
       </div>
-      <pre id="status">Idle</pre>
+      <div id="permissions" class="permission-summary" aria-live="polite">No permissions granted.</div>
+      <pre id="status" aria-live="polite">Idle</pre>
     </section>
+
     <section class="card screen-card">
-      <video id="remoteVideo" autoplay playsinline></video>
-      <p class="hint">Click inside the video, then move/click/type to send control events when the host has enabled remote control.</p>
+      <video id="remoteVideo" autoplay playsinline tabindex="0" aria-label="Approved remote screen stream"></video>
+      <p class="hint">Input is sent only while this video is focused and only for capabilities the host approved. The host can revoke access at any time.</p>
+      <div class="clipboard-row">
+        <label for="clipboardText">Clipboard text <input id="clipboardText" maxlength="4096" disabled></label>
+        <button id="clipboardBtn" class="button secondary" type="button" disabled>Send approved clipboard text</button>
+      </div>
     </section>
   </main>
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const hostIdInput = document.getElementById('hostId');
-    const pinInput = document.getElementById('pin');
-    const connectBtn = document.getElementById('connectBtn');
-    const statusEl = document.getElementById('status');
-    const video = document.getElementById('remoteVideo');
-    let pc;
-    let allowControl = false;
-
-    function log(message) {
-      statusEl.textContent = `[${new Date().toLocaleTimeString()}] ${message}\n` + statusEl.textContent;
-    }
-
-    async function verifyPin(hostId, pin) {
-      const res = await fetch(`/api/session/${encodeURIComponent(hostId)}/verify-pin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin })
-      });
-      if (!res.ok) throw new Error((await res.json()).error || 'PIN verification failed');
-      return (await res.json()).token;
-    }
-
-    async function connect() {
-      const hostId = hostIdInput.value.replace(/\D/g, '');
-      if (!hostId || !pinInput.value.trim()) return alert('Enter session ID and PIN.');
-      const token = await verifyPin(hostId, pinInput.value.trim());
-      pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-      pc.ontrack = event => {
-        video.srcObject = event.streams[0];
-        log('Remote stream received.');
-      };
-      pc.onicecandidate = event => {
-        if (event.candidate) socket.emit('signal', { candidate: event.candidate });
-      };
-      socket.emit('join-host', { hostId, token });
-      log('Join request sent.');
-    }
-
-    connectBtn.onclick = () => connect().catch(err => log(err.message));
-
-    socket.on('viewer-joined', data => {
-      allowControl = Boolean(data.allowControl);
-      log(`Connected. Remote control ${allowControl ? 'allowed' : 'not allowed'} by host.`);
-    });
-    socket.on('host-settings', data => {
-      allowControl = Boolean(data.allowControl);
-      log(`Remote control ${allowControl ? 'enabled' : 'disabled'} by host.`);
-    });
-    socket.on('pin-required', () => log('PIN required or token expired.'));
-    socket.on('error-msg', log);
-    socket.on('host-disconnected', () => log('Host disconnected.'));
-    socket.on('signal', async data => {
-      if (!pc) return;
-      if (data.description) {
-        await pc.setRemoteDescription(data.description);
-        if (data.description.type === 'offer') {
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          socket.emit('signal', { description: pc.localDescription });
-        }
-      }
-      if (data.candidate) await pc.addIceCandidate(data.candidate);
-    });
-
-    function sendControl(event) {
-      if (!allowControl) return;
-      socket.emit('control-event', event);
-    }
-
-    video.addEventListener('mousemove', event => {
-      const box = video.getBoundingClientRect();
-      sendControl({ type: 'move', x: (event.clientX - box.left) / box.width, y: (event.clientY - box.top) / box.height });
-    });
-    video.addEventListener('click', event => sendControl({ type: 'click', button: event.button === 2 ? 'right' : 'left' }));
-    video.addEventListener('wheel', event => {
-      event.preventDefault();
-      sendControl({ type: 'scroll', delta: event.deltaY < 0 ? 5 : -5 });
-    }, { passive: false });
-    window.addEventListener('keydown', event => {
-      if (!document.activeElement || document.activeElement.tagName === 'INPUT') return;
-      sendControl({ type: 'key', key: event.key });
-    });
-  </script>
 </body>
 </html>
