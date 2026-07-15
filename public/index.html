@@ -1,34 +1,35 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DeskRTC</title>
-  <link rel="stylesheet" href="/style.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="DeskRTC is a consent-first local-network remote support prototype with host-approved viewer access.">
+  <title>DeskRTC — Consent-first remote support</title>
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <main class="shell">
     <section class="card hero">
-      <p class="eyebrow">Consent-based WebRTC remote support</p>
+      <p class="eyebrow">Consent-first local support prototype</p>
       <h1>DeskRTC</h1>
-      <p>Start a host session or connect as a viewer using a session ID and PIN.</p>
+      <p>A host shares a screen, every viewer must pass PIN verification, and the host then approves that viewer with an explicit per-session permission scope.</p>
       <div class="actions">
         <a class="button" href="/host.html">Host this computer</a>
-        <a class="button secondary" href="/viewer.html">Connect to a host</a>
+        <a class="button secondary" href="/viewer.html">Request access to a host</a>
       </div>
     </section>
     <section class="grid">
       <div class="card">
-        <h2>Host</h2>
-        <p>Share your screen, set a required PIN, and optionally enable remote control through the Python agent.</p>
+        <h2>Attended access</h2>
+        <p>PIN verification creates only a short-lived request. The host must separately approve screen viewing and any pointer, keyboard, or clipboard capability.</p>
       </div>
       <div class="card">
-        <h2>Viewer</h2>
-        <p>Connect with the host-provided ID and PIN. Remote control is only relayed when the host enables it.</p>
+        <h2>Local-first transport</h2>
+        <p>The default server binds to loopback and does not use a third-party STUN or TURN service. Internet deployment requires HTTPS, authentication, and reviewed relay infrastructure.</p>
       </div>
       <div class="card warning">
-        <h2>Responsible use</h2>
-        <p>Only use this tool on systems you own or where the host has clearly given permission.</p>
+        <h2>Authorized support only</h2>
+        <p>Do not use DeskRTC for hidden access, surveillance, credential collection, identity-verification evasion, or control without informed host consent.</p>
       </div>
     </section>
   </main>
